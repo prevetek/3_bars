@@ -8,27 +8,26 @@ import math
 
 
 # расчет расстояния между двумя точками поверхности земли
-def Dist(llat1, llong1, llat2, llong2):
-    # pi - число pi, rad - радиус сферы (Земли)
-    rad = 6372795
-    # в радианах
-    lat1 = llat1 * math.pi / 180.
-    lat2 = llat2 * math.pi / 180.
-    long1 = llong1 * math.pi / 180.
-    long2 = llong2 * math.pi / 180.
+def distance(latitude1, longitude1, latitude2, longitude2):
+    earth_radius = 6372795
+    # координаты в радианах
+    lat1 = latitude1 * math.pi / 180.
+    lat2 = latitude2 * math.pi / 180.
+    long1 = longitude1 * math.pi / 180.
+    long2 = longitude2 * math.pi / 180.
     # косинусы и синусы широт и разницы долгот
-    cl1 = math.cos(lat1)
-    cl2 = math.cos(lat2)
-    sl1 = math.sin(lat1)
-    sl2 = math.sin(lat2)
+    cos_lat1 = math.cos(lat1)
+    cos_lat2 = math.cos(lat2)
+    sin_lat1 = math.sin(lat1)
+    sin_lat2 = math.sin(lat2)
     delta = long2 - long1
-    cdelta = math.cos(delta)
-    sdelta = math.sin(delta)
+    cos_delta = math.cos(delta)
+    sin_delta = math.sin(delta)
     # вычисления длины большого круга
-    y = math.sqrt(math.pow(cl2 * sdelta, 2) + math.pow(cl1 * sl2 - sl1 * cl2 * cdelta, 2))
-    x = sl1 * sl2 + cl1 * cl2 * cdelta
+    y = math.sqrt(math.pow(cos_lat2 * sin_delta, 2) + math.pow(cos_lat1 * sin_lat2 - sin_lat1 * cos_lat2 * cos_delta, 2))
+    x = sin_lat1 * sin_lat2 + cos_lat1 * cos_lat2 * cos_delta
     ad = math.atan2(y, x)
-    dist = ad * rad
+    dist = ad * earth_radius / 1000
     return dist
 
 
@@ -44,48 +43,52 @@ def load_data(filepath="http://data.mos.ru/opendata/export/1796/json/2/"):
                      "coordinates": i["Cells"]["geoData"]["coordinates"],
                      "address": i["Cells"]["Address"]
                      })
+    zf.close()
     return data
 
 
 def get_biggest_bar(data):
-    # Определяем бар с максимальным количеством мест
-    max = 0  # буфер мест в самом большом баре
-    for i in data:
-        if i["space"] > max:
-            max = i["space"]
-            bars = []
-            bars.append(i)
-        elif i["space"] == max:
-            bars.append(i)
-    for i in bars:
-        print("-- %s имеет %s посадочных мест, адресс: %s" % (i["name"], i["space"], i["address"]))
+    for number, bar in enumerate(data):
+        if number == 0:
+            big_bar = bar["space"]
+            continue
+        if bar["space"] > big_bar:
+            big_bar = bar["space"]
+            biggest_bars = [bar]
+        elif bar["space"] == big_bar:
+            biggest_bars.append(bar)
+    return biggest_bars
 
 
 def get_smallest_bar(data):
-    max = 99999999  # буфер мест в самом большом баре
-    for i in data:
-        if i["space"] < max:
-            max = i["space"]
-            bars = []
-            bars.append(i)
-        elif i["space"] == max:
-            bars.append(i)
-    for i in bars:
-        print("-- %s имеет %s посадочных мест, адресс: %s" % (i["name"], i["space"], i["address"]))
+    for number, bar in enumerate(data):
+        if number == 0:
+            small_bar = bar["space"]
+            continue
+        if bar["space"] < small_bar:
+            small_bar = bar["space"]
+            smallest_bars = [bar]
+        elif bar["space"] == small_bar:
+            smallest_bars.append(bar)
+    return smallest_bars
 
 
 def get_closest_bar(data, longitude, latitude):
-    max = 99999999999999  # буфер мест в самом большом баре
-    for i in data:
-        d = Dist(i["coordinates"][0], i["coordinates"][1], longitude, latitude)
-        if d < max:
-            max = d
-            bars = []
-            bars.append(i)
-        elif d == max:
-            bars.append(i)
-    for i in bars:
-        print("-- %s имеет %s посадочных мест, адресс: %s" % (i["name"], i["space"], i["address"]))
+    for number, bar in enumerate(data):
+        dist = distance(bar["coordinates"][0], bar["coordinates"][1], longitude, latitude)
+        if number == 0:
+            closest_bar = bar.copy()
+            closest_bar.update({"distance": dist})
+            continue
+        if dist < closest_bar["distance"]:
+            closest_bar = bar.copy()
+            closest_bar.update({"distance": dist})
+            closest_bars = [closest_bar]
+        elif dist == max:
+            closest_bar = bar.copy()
+            closest_bar.update({"distance": dist})
+            closest_bars.append(closest_bar)
+    return closest_bars
 
 
 if __name__ == '__main__':
@@ -99,33 +102,41 @@ if __name__ == '__main__':
                """
     print(hello)
     while 1:
-        com = input("Введите команду: ")
-        if com == "x":
+        comand = input("Введите команду: ")
+        if comand == "x":
             print("Сэр, приятного Вам отдыха!")
             break
-        elif com == "s":
-            get_smallest_bar(data)
-        elif com == "b":
-            get_biggest_bar(data)
-        elif com == "c":
-            print("Введите свои координаты в градусах с десятичной дробью (используйте знак '-' для отрицательных координат)")
+        elif comand == "s":
+            bars = get_smallest_bar(data)
+            for bar in bars:
+                print("-- %s имеет %s посадочных мест(а), адресс: %s" % (bar["name"], bar["space"], bar["address"]))
+        elif comand == "b":
+            bars = get_biggest_bar(data)
+            for bar in bars:
+                print("-- %s имеет %s посадочных мест(а), адресс: %s" % (bar["name"], bar["space"], bar["address"]))
+        elif comand == "c":
+            print(
+                "Введите свои координаты в градусах с десятичной дробью (используйте знак '-' для "
+                "отрицательных координат)")
             while 1:
                 try:
-                    x = input("  широта:")
-                    x = float(x.replace(",", "."))
+                    latitude = input("  широта:")
+                    latitude = float(latitude.replace(",", "."))
                     break
                 except ValueError:
                     print("Такой широты не сущестует, попробуйте еще раз...")
                     continue
             while 1:
                 try:
-                    y = input("  долгота:")
-                    y = float(y.replace(",", "."))
+                    longitude = input("  долгота:")
+                    longitude = float(longitude.replace(",", "."))
                     break
                 except ValueError:
                     print("Такой долготы не существует, попробуйте еще раз...")
                     continue
-            get_closest_bar(data, x, y)
+            bars = get_closest_bar(data, latitude, longitude)
+            for bar in bars:
+                print(u"-- {0:s} находится в {1:.1f} м. от Вас по адреуссу {2:s} и имеет {3:d} посадочных мест(а)"
+                      .format(bar["name"], bar["distance"], bar["address"], bar["space"]))
         else:
             print("Сэр, я не знаю такой команды...")
-
