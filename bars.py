@@ -3,37 +3,28 @@
 
 import json
 from urllib.request import urlretrieve
-import zipfile
-import math
+from zipfile import ZipFile
+from math import cos, sin, asin, sqrt, radians
+from tempfile import NamedTemporaryFile
 
 
 # расчет расстояния между двумя точками поверхности земли
 def distance(latitude1, longitude1, latitude2, longitude2):
-    earth_radius = 6372795
-    # координаты в радианах
-    lat1 = latitude1 * math.pi / 180.
-    lat2 = latitude2 * math.pi / 180.
-    long1 = longitude1 * math.pi / 180.
-    long2 = longitude2 * math.pi / 180.
-    # косинусы и синусы широт и разницы долгот
-    cos_lat1 = math.cos(lat1)
-    cos_lat2 = math.cos(lat2)
-    sin_lat1 = math.sin(lat1)
-    sin_lat2 = math.sin(lat2)
-    delta = long2 - long1
-    cos_delta = math.cos(delta)
-    sin_delta = math.sin(delta)
+    earth_radius = 6372.795
+    lat1, long1, lat2, long2 = map(radians, [latitude1, longitude1, latitude2, longitude2])
+    delta_lat = lat2 - lat1
+    delta_long = long2 - long1
     # вычисления длины большого круга
-    y = math.sqrt(math.pow(cos_lat2 * sin_delta, 2) + math.pow(cos_lat1 * sin_lat2 - sin_lat1 * cos_lat2 * cos_delta, 2))
-    x = sin_lat1 * sin_lat2 + cos_lat1 * cos_lat2 * cos_delta
-    ad = math.atan2(y, x)
-    dist = ad * earth_radius / 1000
+    a = sin(delta_lat / 2)**2 + cos(lat1) * cos(lat2) * sin(delta_long / 2)**2
+    c = 2 * asin(sqrt(a))
+    dist = earth_radius * c
     return dist
 
 
 def load_data(filepath="http://data.mos.ru/opendata/export/1796/json/2/"):
-    urlretrieve(url=filepath, filename="1.zip")
-    zf = zipfile.ZipFile("1.zip", "r")
+    tempfile = NamedTemporaryFile()
+    urlretrieve(url=filepath, filename=tempfile.name)
+    zf = ZipFile(tempfile.name, "r")
     zname = zf.namelist()[0]
     js = json.loads(zf.read(zname).decode('utf-8'))
     data = []
@@ -44,6 +35,7 @@ def load_data(filepath="http://data.mos.ru/opendata/export/1796/json/2/"):
                      "address": i["Cells"]["Address"]
                      })
     zf.close()
+    tempfile.close()
     return data
 
 
@@ -75,7 +67,7 @@ def get_smallest_bar(data):
 
 def get_closest_bar(data, longitude, latitude):
     for number, bar in enumerate(data):
-        dist = distance(bar["coordinates"][0], bar["coordinates"][1], longitude, latitude)
+        dist = distance(bar["coordinates"][1], bar["coordinates"][0], longitude, latitude)
         if number == 0:
             closest_bar = bar.copy()
             closest_bar.update({"distance": dist})
@@ -84,7 +76,7 @@ def get_closest_bar(data, longitude, latitude):
             closest_bar = bar.copy()
             closest_bar.update({"distance": dist})
             closest_bars = [closest_bar]
-        elif dist == max:
+        elif dist == closest_bar["distance"]:
             closest_bar = bar.copy()
             closest_bar.update({"distance": dist})
             closest_bars.append(closest_bar)
@@ -136,7 +128,7 @@ if __name__ == '__main__':
                     continue
             bars = get_closest_bar(data, latitude, longitude)
             for bar in bars:
-                print(u"-- {0:s} находится в {1:.1f} м. от Вас по адреуссу {2:s} и имеет {3:d} посадочных мест(а)"
+                print(u"-- {0:s} находится в {1:.1f} км. от Вас по адреуссу {2:s} и имеет {3:d} посадочных мест(а)"
                       .format(bar["name"], bar["distance"], bar["address"], bar["space"]))
         else:
             print("Сэр, я не знаю такой команды...")
