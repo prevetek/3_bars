@@ -15,7 +15,7 @@ def distance(latitude1, longitude1, latitude2, longitude2):
     delta_lat = lat2 - lat1
     delta_long = long2 - long1
     # вычисления длины большого круга
-    a = sin(delta_lat / 2)**2 + cos(lat1) * cos(lat2) * sin(delta_long / 2)**2
+    a = sin(delta_lat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(delta_long / 2) ** 2
     c = 2 * asin(sqrt(a))
     dist = earth_radius * c
     return dist
@@ -32,7 +32,8 @@ def load_data(filepath="http://data.mos.ru/opendata/export/1796/json/2/"):
         data.append({"name": i["Cells"]["Name"],
                      "space": i["Cells"]["SeatsCount"],
                      "coordinates": i["Cells"]["geoData"]["coordinates"],
-                     "address": i["Cells"]["Address"]
+                     "address": i["Cells"]["Address"],
+                     "distance": None
                      })
     zf.close()
     tempfile.close()
@@ -65,22 +66,14 @@ def get_smallest_bar(data):
     return smallest_bars
 
 
+def return_dist(bar):
+    return bar["distance"]
+
+
 def get_closest_bar(data, longitude, latitude):
     for number, bar in enumerate(data):
-        dist = distance(bar["coordinates"][1], bar["coordinates"][0], longitude, latitude)
-        if number == 0:
-            closest_bar = bar.copy()
-            closest_bar.update({"distance": dist})
-            continue
-        if dist < closest_bar["distance"]:
-            closest_bar = bar.copy()
-            closest_bar.update({"distance": dist})
-            closest_bars = [closest_bar]
-        elif dist == closest_bar["distance"]:
-            closest_bar = bar.copy()
-            closest_bar.update({"distance": dist})
-            closest_bars.append(closest_bar)
-    return closest_bars
+        data[number]["distance"] = distance(bar["coordinates"][1], bar["coordinates"][0], longitude, latitude)
+    return min(data, key=return_dist)
 
 
 if __name__ == '__main__':
@@ -126,9 +119,8 @@ if __name__ == '__main__':
                 except ValueError:
                     print("Такой долготы не существует, попробуйте еще раз...")
                     continue
-            bars = get_closest_bar(data, latitude, longitude)
-            for bar in bars:
-                print(u"-- {0:s} находится в {1:.1f} км. от Вас по адреуссу {2:s} и имеет {3:d} посадочных мест(а)"
-                      .format(bar["name"], bar["distance"], bar["address"], bar["space"]))
+            bar = get_closest_bar(data, latitude, longitude)
+            print("-- {0:s} находится в {1:.1f} км. от Вас по адреуссу {2:s} и имеет {3:d} посадочных мест(а)"
+                  .format(bar["name"], bar["distance"], bar["address"], bar["space"]))
         else:
             print("Сэр, я не знаю такой команды...")
