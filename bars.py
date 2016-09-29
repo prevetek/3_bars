@@ -66,14 +66,12 @@ def get_smallest_bar(data):
     return smallest_bars
 
 
-def return_dist(bar):
-    return bar["distance"]
-
-
 def get_closest_bar(data, longitude, latitude):
+    def get_dist(bar):
+        return bar["distance"]
     for number, bar in enumerate(data):
         data[number]["distance"] = distance(bar["coordinates"][1], bar["coordinates"][0], longitude, latitude)
-    return min(data, key=return_dist)
+    return min(data, key=get_dist)
 
 
 if __name__ == '__main__':
